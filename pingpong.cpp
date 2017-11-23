@@ -199,7 +199,7 @@ int main( void )
         btTransform startTransform;
         startTransform.setIdentity();
         
-        btScalar mass(1.f);
+        btScalar mass(0.027f);
         
         //rigidbody is dynamic if and only if mass is non zero, otherwise static
         bool isDynamic = (mass != 0.f);
@@ -424,7 +424,32 @@ int main( void )
     glDeleteProgram(programID);
     glDeleteTextures(1, &Texture);
     glDeleteVertexArrays(1, &VertexArrayID);
+    //Clean up Bullet Physics stuff
+    //remove the rigidbodies from the dynamics world and delete them
+    for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--)
+    {
+        btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
+        btRigidBody* body = btRigidBody::upcast(obj);
+        if (body && body->getMotionState())
+        {
+            delete body->getMotionState();
+        }
+        dynamicsWorld->removeCollisionObject(obj);
+        delete obj;
+    }
     
+    //delete collision shapes
+    for (int j = 0; j < collisionShapes.size(); j++)
+    {
+        btCollisionShape* shape = collisionShapes[j];
+        collisionShapes[j] = 0;
+        delete shape;
+    }
+    delete dynamicsWorld;
+    delete solver;
+    delete overlappingPairCache;
+    delete dispatcher;
+    delete collisionConfiguration;
     // Close OpenGL window and terminate GLFW
     glfwTerminate();
     

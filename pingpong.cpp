@@ -47,7 +47,7 @@ void addPlaneToSim(btVector3 normal, btScalar d, btAlignedObjectArray<btCollisio
     btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
     btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, Shape, localInertia);
     btRigidBody* body = new btRigidBody(rbInfo);
-    body->setRestitution(1);
+    body->setRestitution(0.5);
     body->setFriction(0.);
     //add the body to the dynamics world
     
@@ -175,6 +175,15 @@ int main( void )
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
     
+    //An array that stores randomly generated colour of each ball
+    //randomly generate a colour
+    std::vector<vec3> ball_colors;
+    vec3 ball_color;
+    ball_color[0]= (double)(rand() % 256)/255.;
+    ball_color[1] = (double)(rand() % 256)/255.;
+    ball_color[2] = (double)(rand() % 256)/255.;
+    ball_colors.insert(ball_colors.end(), ball_color);
+    
     /*Create a Box*****************************************************************/
     // Read our .obj file
     std::vector<glm::vec3> f_vertices;
@@ -243,13 +252,15 @@ int main( void )
     btAlignedObjectArray<btCollisionShape*> collisionShapes;
     //TODO Make a Table
     {//The BOX, made up of six infinite planes (to simplify)
-        addPlaneToSim(btVector3(0,1,0), -1, collisionShapes, dynamicsWorld);
-        addPlaneToSim(btVector3(0,-1,0), -2, collisionShapes, dynamicsWorld);
-        addPlaneToSim(btVector3(1,0,0), -1., collisionShapes, dynamicsWorld);
-        addPlaneToSim(btVector3(-1,0,0), -1., collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(0,1,0), -1., collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(0,-1,0), -2., collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(1,0,0), -1, collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(-1,0,0), -1, collisionShapes, dynamicsWorld);
         addPlaneToSim(btVector3(0,0,1), -1, collisionShapes, dynamicsWorld);
         addPlaneToSim(btVector3(0,0,-1), -6, collisionShapes, dynamicsWorld);
     }
+    int num_planes = 6;
+    float ball_speed = 1.;
     {//create a dynamic rigidbody
         
         //btCollisionShape* colShape = new btBoxShape(btVector3(1,1,1));
@@ -269,14 +280,14 @@ int main( void )
         if (isDynamic)
             colShape->calculateLocalInertia(mass, localInertia);
         
-        startTransform.setOrigin(btVector3(0, 1, 0));
+        startTransform.setOrigin(btVector3(0, 0, 0));
         
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
-        body->setRestitution(0.9);
-        body->setLinearVelocity(btVector3(0,-1,0));
+        body->setRestitution(0.5);
+        body->setLinearVelocity(btVector3(0,-ball_speed,0));
         body->setFriction(0.);
         dynamicsWorld->addRigidBody(body);
     }
@@ -289,7 +300,7 @@ int main( void )
         
         // Measure speed
         double currentTime = glfwGetTime();
-        while ( currentTime - lastTime <= 0.016 ){ // If last prinf() was more than 1 sec ago
+        while ( currentTime - lastTime <= 0.0166 ){
             currentTime = glfwGetTime();
             nbFrames++;
         }
@@ -311,7 +322,7 @@ int main( void )
             glm::vec3 gun_origin;
             glm::vec3 shoot_direction;
             computeShooting(gun_origin, shoot_direction);
-            shoot_direction = 10.0f * shoot_direction;
+            shoot_direction = ball_speed * shoot_direction;
             btCollisionShape* colShape = new btSphereShape(btScalar(0.1));
             collisionShapes.push_back(colShape);
             
@@ -335,19 +346,29 @@ int main( void )
             btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
             btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
             btRigidBody* body = new btRigidBody(rbInfo);
-            body->setRestitution(1.);
+            body->setRestitution(0.5);
             body->setLinearVelocity(btVector3(shoot_direction[0],shoot_direction[1],shoot_direction[2]));
             body->setFriction(0.);
             dynamicsWorld->addRigidBody(body);
+            //Add a new color for the new ball as well
+            vec3 ball_color;
+            ball_color[0]= (double)(rand() % 256)/255.;
+            ball_color[1] = (double)(rand() % 256)/255.;
+            ball_color[2] = (double)(rand() % 256)/255.;
+            ball_colors.insert(ball_colors.end(), ball_color);
+        }
+        
+        //Before step into the next simulation timestamp, want to record the old speed so that we can maintain the the same speed after the simulation. We are not trying to follow actual physics here. Instead, we just want to create a visual effect that all the balls keep bouncing forever
+        int num_colli_obj = dynamicsWorld->getNumCollisionObjects();
+        
+        for (int j = num_colli_obj - 1; j >= num_planes; j--) {
+            
         }
         
         //Run physical simulations to updates objects' model matrices
         double currentSimTime = currentTime - startTime;
-        //hack: slow down the bounce a bit
-        //currentSimTime/=10.;
         dynamicsWorld->stepSimulation(currentSimTime, 10);
         ////// Start of the rendering of the balls//////
-        int num_colli_obj = dynamicsWorld->getNumCollisionObjects();
         std::vector<glm::mat4> Matrices;
         for (int j = num_colli_obj - 1; j >= 0; j--)
         {
@@ -357,12 +378,16 @@ int main( void )
             if (body && body->getMotionState())
             {
                 body->getMotionState()->getWorldTransform(trans);
+                btVector3 velocity = body->getLinearVelocity();
+                velocity.normalize();
+                velocity = ball_speed * velocity;
+                body->setLinearVelocity(velocity);
             }
             else
             {
                 trans = obj->getWorldTransform();
             }
-            if (j>=6) {
+            if (j>=num_planes) {
                 glm::mat4 ModelMatrix = glm::translate(glm::mat4(1.0),glm::vec3(float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ())));
                 Matrices.insert(Matrices.end(),ModelMatrix);
                 //printf("world pos object %d = %f,%f,%f\n", j, float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
@@ -377,9 +402,6 @@ int main( void )
         computeLightPosFromInputs();
         glm::vec3 lightPos = getlightPos();
         glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
-        
-        //colour of the ball is defined to be orangish
-        glUniform3f(ColorID, 1.,0.4,0.);
         
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);
@@ -423,8 +445,13 @@ int main( void )
         
         // Send our transformation to the currently bound shader,
         // in the "MVP" uniform
+        int i = ball_colors.size();
         for (std::vector<mat4>::iterator it=Matrices.begin(); it<Matrices.end(); it++) {
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * *it;
+            glUniform3f(ColorID, ball_colors[i][0], ball_colors[i][1],ball_colors[i][2]);
+            if (i-1 >=0) { //sanity check, but should always be true
+                i--;
+            }
             glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
             glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &(*it)[0][0]);
             // Draw the triangles !

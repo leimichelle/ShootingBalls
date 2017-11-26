@@ -21,7 +21,7 @@ glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
 
 //Initial light position
-glm::vec3 lightPos = glm::vec3(4,4,4);
+glm::vec3 lightPos = glm::vec3(0,4,-3);
 // Initial position : on +Z
 glm::vec3 position = glm::vec3( 0, 0, 6 );
 
@@ -53,7 +53,7 @@ float speed = 3.0f; // 3 units / second
 float mouseSpeed = 0.002f;
 
 //slow down the change in light position.
-float movelightspeed = 0.1;
+float movelightspeed = 0.08;
 
 
 
@@ -157,7 +157,7 @@ void computeLightPosFromInputs() {
     
     // Strafe left
     if (glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS){
-        lightPos = glm::vec3(4,4,4);
+        lightPos = glm::vec3(0,4,-3);
     }
     
 }
@@ -190,7 +190,7 @@ void ScreenPosToWorldRay(
     
     // The Projection matrix goes from Camera Space to NDC.
     // So inverse(ProjectionMatrix) goes from NDC to Camera Space.
-    glm::mat4 InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
+    /*glm::mat4 InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
     
     // The View Matrix goes from World Space to Camera Space.
     // So inverse(ViewMatrix) goes from Camera Space to World Space.
@@ -199,17 +199,17 @@ void ScreenPosToWorldRay(
     glm::vec4 lRayStart_camera = InverseProjectionMatrix * lRayStart_NDC;    lRayStart_camera/=lRayStart_camera.w;
     glm::vec4 lRayStart_world  = InverseViewMatrix       * lRayStart_camera; lRayStart_world /=lRayStart_world .w;
     glm::vec4 lRayEnd_camera   = InverseProjectionMatrix * lRayEnd_NDC;      lRayEnd_camera  /=lRayEnd_camera  .w;
-    glm::vec4 lRayEnd_world    = InverseViewMatrix       * lRayEnd_camera;   lRayEnd_world   /=lRayEnd_world   .w;
+    glm::vec4 lRayEnd_world    = InverseViewMatrix       * lRayEnd_camera;   lRayEnd_world   /=lRayEnd_world   .w;*/
     
     
     // Faster way (just one inverse)
-    //glm::mat4 M = glm::inverse(ProjectionMatrix * ViewMatrix);
-    //glm::vec4 lRayStart_world = M * lRayStart_NDC; lRayStart_world/=lRayStart_world.w;
-    //glm::vec4 lRayEnd_world   = M * lRayEnd_NDC  ; lRayEnd_world  /=lRayEnd_world.w;
+    glm::mat4 M = glm::inverse(ProjectionMatrix * ViewMatrix);
+    glm::vec4 lRayStart_world = M * lRayStart_NDC; lRayStart_world/=lRayStart_world.w;
+    glm::vec4 lRayEnd_world   = M * lRayEnd_NDC  ; lRayEnd_world  /=lRayEnd_world.w;
     
     
     glm::vec3 lRayDir_world(lRayEnd_world - lRayStart_world);
-    lRayDir_world = glm::normalize(lRayDir_world);
+    //lRayDir_world = glm::normalize(lRayDir_world);
     
     
     out_origin = glm::vec3(lRayStart_world);
@@ -220,6 +220,8 @@ void ScreenPosToWorldRay(
 void computeShooting(glm::vec3& ray_origin, glm::vec3& ray_direction){
     double xpos,ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
+    //The y-coordincate of the screen increases DOWNWARD!! Great! Took me a while to debug
+    xpos = 1024. - xpos;
     ScreenPosToWorldRay(
                         xpos, ypos,
                         1024, 768,

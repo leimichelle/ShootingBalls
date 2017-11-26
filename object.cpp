@@ -36,24 +36,24 @@ object::object(int _id, const char * _obj_file, const char * _texture_file) {
         printf("Invalid texture file format!\n");
         assert(false);
     }
-    glGenVertexArrays(1, &VertexArrayID);
-    /*glBindVertexArray(VertexArrayID);
+    /*glGenVertexArrays(1, &VertexArrayID);
+    glBindVertexArray(VertexArrayID);*/
     
     glGenBuffers(1, &vertexbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);
+    /*glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+    glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);*/
     
     glGenBuffers(1, &uvbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-    glBufferData(GL_ARRAY_BUFFER, indexed_uvs.size() * sizeof(glm::vec3), &indexed_uvs[0], GL_STATIC_DRAW);
+    /*glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
+    glBufferData(GL_ARRAY_BUFFER, indexed_uvs.size() * sizeof(glm::vec3), &indexed_uvs[0], GL_STATIC_DRAW);*/
     
     glGenBuffers(1, &normalbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-    glBufferData(GL_ARRAY_BUFFER, indexed_normals.size() * sizeof(glm::vec3), &indexed_normals[0], GL_STATIC_DRAW);
+    /*glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
+    glBufferData(GL_ARRAY_BUFFER, indexed_normals.size() * sizeof(glm::vec3), &indexed_normals[0], GL_STATIC_DRAW);*/
     
     // Generate a buffer for the indices as well
     glGenBuffers(1, &elementbuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+    /*glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
     glBindVertexArray(0); // Disable our Vertex Buffer Object*/
 }

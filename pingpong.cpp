@@ -224,8 +224,8 @@ int main( void )
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, f_indices.size() * sizeof(unsigned short), &f_indices[0] , GL_STATIC_DRAW);
     
     glm::mat4 ModelMatrix2 = glm::mat4(1.0);
-    ModelMatrix2 = glm::translate(ModelMatrix2, glm::vec3(0,0.5, 5));
-    ModelMatrix2 = glm::scale(ModelMatrix2, glm::vec3(2.f, 3.f, 12.f));
+    ModelMatrix2 = glm::translate(ModelMatrix2, glm::vec3(0,0.5, 2.6f));
+    ModelMatrix2 = glm::scale(ModelMatrix2, glm::vec3(2.f, 3.f, 7.2f));
     /******************************************************************************/
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);

@@ -74,8 +74,12 @@ add_executable(PingPongGame
 	./object.hpp
     ./vboindexer.cpp
     ./vboindexer.hpp
+    ./primitives.cpp
+    ./primitives.hpp
 	./StandardShading.vertexshader
 	./StandardShading.fragmentshader
+    ./CursorShading.vertexshader
+    ./CursorShading.fragmentshader
 )
 target_link_libraries(PingPongGame
 	${ALL_LIBS}

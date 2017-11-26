@@ -26,6 +26,34 @@ using namespace glm;
 #include <vboindexer.hpp>
 #include <object.hpp>
 #include <vboindexer.hpp>
+#include <primitives.hpp>
+
+void addPlaneToSim(btVector3 normal, btScalar d, btAlignedObjectArray<btCollisionShape*>& collisionShapes, btDynamicsWorld* dynamicsWorld) {
+    btCollisionShape* Shape = new btStaticPlaneShape(normal, d);
+    collisionShapes.push_back(Shape);
+    
+    btScalar mass(0.);
+    
+    //rigidbody is dynamic if and only if mass is non zero, otherwise static
+    bool isDynamic = (mass != 0.f);
+    
+    btVector3 localInertia(0, 0, 0);
+    if (isDynamic)
+        Shape->calculateLocalInertia(mass, localInertia);
+    /// Create Dynamic Objects
+    btTransform startTransform;
+    startTransform.setIdentity();
+    //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
+    btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, Shape, localInertia);
+    btRigidBody* body = new btRigidBody(rbInfo);
+    body->setRestitution(1);
+    body->setFriction(0.);
+    //add the body to the dynamics world
+    
+    dynamicsWorld->addRigidBody(body);
+    
+}
 
 int main( void )
 {
@@ -44,7 +72,9 @@ int main( void )
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow( 1024, 768, "Tutorial 09 - Rendering several models", NULL, NULL);
+    int screenWidth = 1024;
+    int screenHeight = 768;
+    window = glfwCreateWindow( screenWidth, screenHeight, "Ball Shotting", NULL, NULL);
     if( window == NULL ){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
         getchar();
@@ -66,10 +96,11 @@ int main( void )
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetMouseButtonCallback(window, mouseCallBack);
     
     // Set the mouse at the center of the screen
     glfwPollEvents();
-    glfwSetCursorPos(window, 1024/2, 768/2);
+    glfwSetCursorPos(window, screenWidth/2, screenHeight/2);
     
     // Dark blue background
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
@@ -80,11 +111,19 @@ int main( void )
     glDepthFunc(GL_LESS);
     
     // Cull triangles which normal is not towards the camera
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
+    
     
     GLuint VertexArrayID;
     glGenVertexArrays(1, &VertexArrayID);
     glBindVertexArray(VertexArrayID);
+    
+    // Create and compile our cursor program from the shaders
+    GLuint cursor_programID = LoadShaders( "CursorShading.vertexshader", "CursorShading.fragmentshader" );
+    
+    // Get a handle for our "MVP" uniform
+    GLuint MVPID = glGetUniformLocation(cursor_programID, "MVP");
+    GLuint CursID = glGetUniformLocation(cursor_programID, "cur_pos");
     
     // Create and compile our GLSL program from the shaders
     GLuint programID = LoadShaders( "StandardShading.vertexshader", "StandardShading.fragmentshader" );
@@ -93,12 +132,13 @@ int main( void )
     GLuint MatrixID = glGetUniformLocation(programID, "MVP");
     GLuint ViewMatrixID = glGetUniformLocation(programID, "V");
     GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
+    GLuint ColorID = glGetUniformLocation(programID, "diffuse_colour");
     
     // Load the texture
-    GLuint Texture = loadBMP_custom("pingpong.bmp");
+    //GLuint Texture = loadBMP_custom("pingpong.bmp");
     
     // Get a handle for our "myTextureSampler" uniform
-    GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
+    //GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
     
     // Read our .obj file
     std::vector<glm::vec3> vertices;
@@ -135,6 +175,49 @@ int main( void )
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
     
+    /*Create a Box*****************************************************************/
+    // Read our .obj file
+    std::vector<glm::vec3> f_vertices;
+    //f_uvs will be arbitrarily initialized such that we can use the indexVBO function but I gave up using texture mapping so it does not matter anymore
+    std::vector<glm::vec2> f_uvs;
+    std::vector<glm::vec3> f_normals;
+    //fail to use maya to properly export a box, might as well write my own
+    res = loadOBJ("box.obj", f_vertices, f_uvs, f_normals);
+    //createUnitCube(f_vertices,f_uvs, f_normals);
+    
+    std::vector<unsigned short> f_indices;
+    std::vector<glm::vec3> f_indexed_vertices;
+    std::vector<glm::vec2> f_indexed_uvs;
+    std::vector<glm::vec3> f_indexed_normals;
+    indexVBO(f_vertices, f_uvs, f_normals, f_indices, f_indexed_vertices, f_indexed_uvs, f_indexed_normals);
+    
+    // Load it into a VBO
+    
+    GLuint f_vertexbuffer;
+    glGenBuffers(1, &f_vertexbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, f_vertexbuffer);
+    glBufferData(GL_ARRAY_BUFFER, f_indexed_vertices.size() * sizeof(glm::vec3), &f_indexed_vertices[0], GL_STATIC_DRAW);
+    
+    GLuint f_uvbuffer;
+    glGenBuffers(1, &f_uvbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, f_uvbuffer);
+    glBufferData(GL_ARRAY_BUFFER, f_indexed_uvs.size() * sizeof(glm::vec2), &f_indexed_uvs[0], GL_STATIC_DRAW);
+    
+    GLuint f_normalbuffer;
+    glGenBuffers(1, &f_normalbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, f_normalbuffer);
+    glBufferData(GL_ARRAY_BUFFER, f_indexed_normals.size() * sizeof(glm::vec3), &f_indexed_normals[0], GL_STATIC_DRAW);
+    
+    // Generate a buffer for the indices as well
+    GLuint f_elementbuffer;
+    glGenBuffers(1, &f_elementbuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, f_elementbuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, f_indices.size() * sizeof(unsigned short), &f_indices[0] , GL_STATIC_DRAW);
+    
+    glm::mat4 ModelMatrix2 = glm::mat4(1.0);
+    ModelMatrix2 = glm::translate(ModelMatrix2, glm::vec3(0,0.5, 5));
+    ModelMatrix2 = glm::scale(ModelMatrix2, glm::vec3(2.f, 3.f, 12.f));
+    /******************************************************************************/
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
     GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
@@ -152,48 +235,26 @@ int main( void )
     btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
     
     btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-    dynamicsWorld->setGravity(btVector3(0,-9.81f,0));
+    dynamicsWorld->setGravity(btVector3(0,0,0));
     //Initialization ends
     
     //keep track of the shapes, we release memory at exit.
     //make sure to re-use collision shapes among rigid bodies whenever possible!
     btAlignedObjectArray<btCollisionShape*> collisionShapes;
-    
     //TODO Make a Table
-    {//Ground
-        btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(1.), btScalar(1.), btScalar(1.)));
-        
-        collisionShapes.push_back(groundShape);
-        
-        btTransform groundTransform;
-        groundTransform.setIdentity();
-        groundTransform.setOrigin(btVector3(0, -2, 0));
-        
-        btScalar mass(0.);
-        
-        //rigidbody is dynamic if and only if mass is non zero, otherwise static
-        bool isDynamic = (mass != 0.f);
-        
-        btVector3 localInertia(0, 0, 0);
-        if (isDynamic)
-            groundShape->calculateLocalInertia(mass, localInertia);
-        
-        //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
-        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
-        btRigidBody* body = new btRigidBody(rbInfo);
-        body->setRestitution(1.);
-        
-        //add the body to the dynamics world
-        
-        dynamicsWorld->addRigidBody(body);
+    {//The BOX, made up of six infinite planes (to simplify)
+        addPlaneToSim(btVector3(0,1,0), -1, collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(0,-1,0), -2, collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(1,0,0), -1., collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(-1,0,0), -1., collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(0,0,1), -1, collisionShapes, dynamicsWorld);
+        addPlaneToSim(btVector3(0,0,-1), -6, collisionShapes, dynamicsWorld);
     }
     {//create a dynamic rigidbody
         
         //btCollisionShape* colShape = new btBoxShape(btVector3(1,1,1));
-        btCollisionShape* colShape = new btSphereShape(btScalar(0.5));
+        btCollisionShape* colShape = new btSphereShape(btScalar(0.1));
         collisionShapes.push_back(colShape);
-        
         
         /// Create Dynamic Objects
         btTransform startTransform;
@@ -215,8 +276,11 @@ int main( void )
         btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
         btRigidBody* body = new btRigidBody(rbInfo);
         body->setRestitution(0.9);
+        body->setLinearVelocity(btVector3(0,-1,0));
+        body->setFriction(0.);
         dynamicsWorld->addRigidBody(body);
     }
+    //number of rigid bodies that are not balls in the dynamicWorld
     // For speed computation
     double lastTime = glfwGetTime();
     int nbFrames = 0;
@@ -225,31 +289,67 @@ int main( void )
         
         // Measure speed
         double currentTime = glfwGetTime();
-        nbFrames++;
-        if ( currentTime - lastTime >= 1.0 ){ // If last prinf() was more than 1sec ago
-            // printf and reset
-            printf("%f ms/frame\n", 1000.0/double(nbFrames));
-            nbFrames = 0;
-            lastTime += 1.0;
+        while ( currentTime - lastTime <= 0.016 ){ // If last prinf() was more than 1 sec ago
+            currentTime = glfwGetTime();
+            nbFrames++;
         }
-        
+        // printf and reset timer
+        //printf("%f ms/frame\n", 1000.0/double(nbFrames));
+        nbFrames = 0;
+        lastTime = currentTime;
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
         
         // Compute the MVP matrix from keyboard and mouse input
         computeMatricesFromInputs();
         glm::mat4 ProjectionMatrix = getProjectionMatrix();
         glm::mat4 ViewMatrix = getViewMatrix();
         
+        //Detect if user shot another ball into the scene
+        if (get_hasShot()){
+            set_hasShot(false);
+            glm::vec3 gun_origin;
+            glm::vec3 shoot_direction;
+            computeShooting(gun_origin, shoot_direction);
+            shoot_direction = 10.0f * shoot_direction;
+            btCollisionShape* colShape = new btSphereShape(btScalar(0.1));
+            collisionShapes.push_back(colShape);
+            
+            
+            /// Create Dynamic Objects
+            btTransform startTransform;
+            startTransform.setIdentity();
+            
+            btScalar mass(0.027f);
+            
+            //rigidbody is dynamic if and only if mass is non zero, otherwise static
+            bool isDynamic = (mass != 0.f);
+            
+            btVector3 localInertia(0, 0, 0);
+            if (isDynamic)
+                colShape->calculateLocalInertia(mass, localInertia);
+            
+            startTransform.setOrigin(btVector3(gun_origin[0], gun_origin[1], gun_origin[2]));
+            
+            //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+            btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+            btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+            btRigidBody* body = new btRigidBody(rbInfo);
+            body->setRestitution(1.);
+            body->setLinearVelocity(btVector3(shoot_direction[0],shoot_direction[1],shoot_direction[2]));
+            body->setFriction(0.);
+            dynamicsWorld->addRigidBody(body);
+        }
+        
         //Run physical simulations to updates objects' model matrices
-        double currentSimTime = glfwGetTime() - startTime;
+        double currentSimTime = currentTime - startTime;
         //hack: slow down the bounce a bit
-        currentSimTime/=10.;
+        //currentSimTime/=10.;
         dynamicsWorld->stepSimulation(currentSimTime, 10);
-        ////// Start of the rendering of the first object //////
-        glm::mat4 ModelMatrix1;
-        for (int j = dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--)
+        ////// Start of the rendering of the balls//////
+        int num_colli_obj = dynamicsWorld->getNumCollisionObjects();
+        std::vector<glm::mat4> Matrices;
+        for (int j = num_colli_obj - 1; j >= 0; j--)
         {
             btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[j];
             btRigidBody* body = btRigidBody::upcast(obj);
@@ -262,10 +362,10 @@ int main( void )
             {
                 trans = obj->getWorldTransform();
             }
-            //TODO: fix harded coded pingpong object
-            if (j==1) {
-                ModelMatrix1 = glm::translate(glm::mat4(1.0),glm::vec3(float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ())));
-                printf("world pos object %d = %f,%f,%f\n", j, float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
+            if (j>=6) {
+                glm::mat4 ModelMatrix = glm::translate(glm::mat4(1.0),glm::vec3(float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ())));
+                Matrices.insert(Matrices.end(),ModelMatrix);
+                //printf("world pos object %d = %f,%f,%f\n", j, float(trans.getOrigin().getX()), float(trans.getOrigin().getY()), float(trans.getOrigin().getZ()));
             }
         }
         
@@ -274,23 +374,12 @@ int main( void )
         
         glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]); // This one doesn't change between objects, so this can be done once for all objects that use "programID"
         
-        glm::mat4 MVP1 = ProjectionMatrix * ViewMatrix * ModelMatrix1;
-        
         computeLightPosFromInputs();
         glm::vec3 lightPos = getlightPos();
         glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
         
-        // Send our transformation to the currently bound shader,
-        // in the "MVP" uniform
-        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP1[0][0]);
-        glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix1[0][0]);
-        
-        
-        // Bind our texture in Texture Unit 0
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, Texture);
-        // Set our "myTextureSampler" sampler to use Texture Unit 0
-        glUniform1i(TextureID, 0);
+        //colour of the ball is defined to be orangish
+        glUniform3f(ColorID, 1.,0.4,0.);
         
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);
@@ -331,82 +420,86 @@ int main( void )
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
         
-        // Draw the triangles !
-        glDrawElements(
-                       GL_TRIANGLES,      // mode
-                       indices.size(),    // count
-                       GL_UNSIGNED_SHORT,   // type
-                       (void*)0           // element array buffer offset
-                       );
-        
-        
-        
-        
-        ////// End of rendering of the first object //////
-        ////// Start of the rendering of the second object //////
-        
-        // In our very specific case, the 2 objects use the same shader.
-        // So it's useless to re-bind the "programID" shader, since it's already the current one.
-        //glUseProgram(programID);
-        
-        // Similarly : don't re-set the light position and camera matrix in programID,
-        // it's still valid !
-        // *** You would have to do it if you used another shader ! ***
-        //glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
-        //glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]); // This one doesn't change between objects, so this can be done once for all objects that use "programID"
-        
-        
-        // Again : this is already done, but this only works because we use the same shader.
-        //// Bind our texture in Texture Unit 0
-        //glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, Texture);
-        //// Set our "myTextureSampler" sampler to use Texture Unit 0
-        //glUniform1i(TextureID, 0);
-        
-        
-        // BUT the Model matrix is different (and the MVP too)
-        glm::mat4 ModelMatrix2 = glm::mat4(1.0);
-        ModelMatrix2 = glm::translate(ModelMatrix2, glm::vec3(2.0f, 0.0f, 0.0f));
-        glm::mat4 MVP2 = ProjectionMatrix * ViewMatrix * ModelMatrix2;
         
         // Send our transformation to the currently bound shader,
         // in the "MVP" uniform
-        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP2[0][0]);
-        glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix2[0][0]);
+        for (std::vector<mat4>::iterator it=Matrices.begin(); it<Matrices.end(); it++) {
+            glm::mat4 MVP = ProjectionMatrix * ViewMatrix * *it;
+            glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+            glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &(*it)[0][0]);
+            // Draw the triangles !
+            glDrawElements(
+                           GL_TRIANGLES,      // mode
+                           indices.size(),    // count
+                           GL_UNSIGNED_SHORT,   // type
+                           (void*)0           // element array buffer offset
+                           );
+        }
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(2);
         
+        ////// End of rendering of the balls //////
+        ////// Start of the rendering of the box object //////
+        
+        // Send our transformation to the currently bound shader,
+        glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix2[0][0]);
+        glm::mat4 MVP2 = ProjectionMatrix * ViewMatrix * ModelMatrix2;
+        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP2[0][0]);
+        
+        //colour of the ball is defined to be orangish
+        glUniform3f(ColorID, 0.,0.,0.);
         
         // The rest is exactly the same as the first object
         
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, f_vertexbuffer);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
         
         // 2nd attribute buffer : UVs
         glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, f_uvbuffer);
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
         
         // 3rd attribute buffer : normals
         glEnableVertexAttribArray(2);
-        glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, f_normalbuffer);
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
         
         // Index buffer
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, f_elementbuffer);
         
         // Draw the triangles !
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, (void*)0);
+        glDrawElements(GL_TRIANGLES, f_indices.size(), GL_UNSIGNED_SHORT, (void*)0);
         
         
-        ////// End of rendering of the second object //////
+        ////// End of rendering of the box object //////
+        ////// Start of the rendering of the gun object //////
+        // Use our cursor shader
+        glUseProgram(cursor_programID);
+        // 1rst attribute buffer : vertices
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, f_vertexbuffer);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        // Send our transformation to the currently bound shader,
+        glm::mat4 ModelMatrix = glm::translate(inverse(ViewMatrix),vec3(0.,0.,-1.));
+        ModelMatrix = glm::scale(ModelMatrix,glm::vec3(0.01,0.01,0.01));
+        glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+        glUniformMatrix4fv(MVPID, 1, GL_FALSE, &MVP[0][0]);
+        double xpos,ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        xpos = ((float)xpos/(float)screenWidth  - 0.5f) * 2.0f;
+        ypos = -((float)ypos/(float)screenHeight  - 0.5f) * 2.0f;
+        vec2 curpos(xpos,ypos);
+        glUniform2fv(CursID,1,&curpos[0]);
+        // Index buffer
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, f_elementbuffer);
         
-        
-        
-        
+        // Draw the triangles !
+        glDrawElements(GL_TRIANGLES, f_indices.size(), GL_UNSIGNED_SHORT, (void*)0);
         glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(2);
+        ////// End of the rendering of the gun object //////
         
         // Swap buffers
         glfwSwapBuffers(window);
@@ -422,7 +515,6 @@ int main( void )
     glDeleteBuffers(1, &normalbuffer);
     glDeleteBuffers(1, &elementbuffer);
     glDeleteProgram(programID);
-    glDeleteTextures(1, &Texture);
     glDeleteVertexArrays(1, &VertexArrayID);
     //Clean up Bullet Physics stuff
     //remove the rigidbodies from the dynamics world and delete them

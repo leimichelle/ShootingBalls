@@ -24,7 +24,6 @@ using namespace glm;
 #include <controls.hpp>
 #include <objloader.hpp>
 #include <vboindexer.hpp>
-#include <object.hpp>
 #include <vboindexer.hpp>
 #include <primitives.hpp>
 

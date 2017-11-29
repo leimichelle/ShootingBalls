@@ -21,7 +21,7 @@ glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
 
 //Initial light position
-glm::vec3 lightPos = glm::vec3(0,4,-3);
+glm::vec3 lightPos = glm::vec3(0,0,5);
 // Initial position : on +Z
 glm::vec3 position = glm::vec3( 0, 0, 6 );
 

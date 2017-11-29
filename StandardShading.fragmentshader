@@ -7,7 +7,7 @@ in vec3 EyeDirection_cameraspace;
 in vec3 LightDirection_cameraspace;
 
 // Ouput data
-out vec3 color;
+out vec4 color;
 
 // Values that stay constant for the whole mesh.
 uniform vec3 diffuse_colour;
@@ -15,13 +15,14 @@ uniform mat4 MV;
 uniform mat4 P;
 uniform vec3 LightPosition_worldspace;
 uniform int MouseHit;
+uniform float transparency;
 
 void main(){
 
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(1,1,1);
-	float LightPower = 50.0f;
+	float LightPower = 30.f;
 	
 	// Material properties
 	vec3 MaterialDiffuseColor = diffuse_colour;
@@ -52,12 +53,13 @@ void main(){
 	//  - Looking elsewhere -> < 1
 	float cosAlpha = clamp( dot( E,R ), 0,1 );
 	
-	color = 
+	color.rgb =
 		// Ambient : simulates indirect lighting
 		MaterialAmbientColor +
 		// Diffuse : "color" of the object
 		MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance) +
 		// Specular : reflective highlight, like a mirror
 		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5) / (distance*distance);
+    color.a = transparency;
 
 }

@@ -112,6 +112,10 @@ int main( void )
     // Cull triangles which normal is not towards the camera
     //glEnable(GL_CULL_FACE);
     
+    // Enable blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
     
     GLuint VertexArrayID;
     glGenVertexArrays(1, &VertexArrayID);
@@ -132,6 +136,7 @@ int main( void )
     GLuint ViewMatrixID = glGetUniformLocation(programID, "V");
     GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
     GLuint ColorID = glGetUniformLocation(programID, "diffuse_colour");
+    GLuint TrasparencyID = glGetUniformLocation(programID, "transparency");
     
     // Load the texture
     //GLuint Texture = loadBMP_custom("pingpong.bmp");
@@ -401,6 +406,8 @@ int main( void )
         glm::vec3 lightPos = getlightPos();
         glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
         
+        glUniform1f(TrasparencyID,1.);
+        
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
@@ -471,11 +478,10 @@ int main( void )
         glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix2[0][0]);
         glm::mat4 MVP2 = ProjectionMatrix * ViewMatrix * ModelMatrix2;
         glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP2[0][0]);
-        
-        //colour of the ball is defined to be orangish
+
         glUniform3f(ColorID, 0.,0.,0.);
         
-        // The rest is exactly the same as the first object
+        glUniform1f(TrasparencyID, 0.8);
         
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);

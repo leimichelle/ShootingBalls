@@ -70,8 +70,6 @@ add_executable(PingPongGame
 	./texture.hpp
 	./objloader.cpp
 	./objloader.hpp
-    ./object.cpp
-	./object.hpp
     ./vboindexer.cpp
     ./vboindexer.hpp
     ./primitives.cpp

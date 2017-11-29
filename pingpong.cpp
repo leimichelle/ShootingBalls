@@ -192,7 +192,6 @@ int main( void )
     std::vector<glm::vec3> f_normals;
     //fail to use maya to properly export a box, might as well write my own
     res = loadOBJ("box.obj", f_vertices, f_uvs, f_normals);
-    //createUnitCube(f_vertices,f_uvs, f_normals);
     
     std::vector<unsigned short> f_indices;
     std::vector<glm::vec3> f_indexed_vertices;
@@ -445,7 +444,7 @@ int main( void )
         
         // Send our transformation to the currently bound shader,
         // in the "MVP" uniform
-        int i = ball_colors.size();
+        int i = ball_colors.size()-1;
         for (std::vector<mat4>::iterator it=Matrices.begin(); it<Matrices.end(); it++) {
             glm::mat4 MVP = ProjectionMatrix * ViewMatrix * *it;
             glUniform3f(ColorID, ball_colors[i][0], ball_colors[i][1],ball_colors[i][2]);

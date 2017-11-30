@@ -21,7 +21,7 @@ glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
 
 //Initial light position
-glm::vec3 lightPos = glm::vec3(0,0,5);
+glm::vec3 lightPos = glm::vec3(0,0,6);
 // Initial position : on +Z
 glm::vec3 position = glm::vec3( 0, 0, 6 );
 
@@ -157,7 +157,7 @@ void computeLightPosFromInputs() {
     
     // Strafe left
     if (glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS){
-        lightPos = glm::vec3(0,4,-3);
+        lightPos = glm::vec3(0,0,6);
     }
     
 }

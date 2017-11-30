@@ -78,6 +78,8 @@ add_executable(PingPongGame
 	./StandardShading.fragmentshader
     ./CursorShading.vertexshader
     ./CursorShading.fragmentshader
+    ./TransformVertexShader.vertexshader
+    ./TextureFragmentShader.fragmentshader
 )
 target_link_libraries(PingPongGame
 	${ALL_LIBS}

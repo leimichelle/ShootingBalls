@@ -128,6 +128,22 @@ int main( void )
     GLuint MVPID = glGetUniformLocation(cursor_programID, "MVP");
     GLuint CursID = glGetUniformLocation(cursor_programID, "cur_pos");
     
+    // Create and compile our shader for the giant environment ball
+    GLuint env_programID = LoadShaders( "TransformVertexShader.vertexshader", "TextureFragmentShader.fragmentshader" );
+    
+    // Get a handle for our "MVP" uniform
+    GLuint env_MatrixID = glGetUniformLocation(env_programID, "MVP");
+
+    // Model matrix : an identity matrix (model will be at the origin)
+    glm::mat4 env_Model      = glm::scale(glm::mat4(1.0f),vec3(70,70,70));
+    
+    // Load the texture using any two methods
+    //GLuint Texture = loadBMP_custom("uvtemplate.bmp");
+    GLuint Texture = loadBMP_custom("./sky.bmp");
+    
+    // Get a handle for our "myTextureSampler" uniform
+    GLuint TextureID  = glGetUniformLocation(env_programID, "myTextureSampler");
+    
     // Create and compile our GLSL program from the shaders
     GLuint programID = LoadShaders( "StandardShading.vertexshader", "StandardShading.fragmentshader" );
     
@@ -230,9 +246,6 @@ int main( void )
     ModelMatrix2 = glm::translate(ModelMatrix2, glm::vec3(0,0.5, 2.6f));
     ModelMatrix2 = glm::scale(ModelMatrix2, glm::vec3(2.f, 3.f, 7.2f));
     /******************************************************************************/
-    // Get a handle for our "LightPosition" uniform
-    glUseProgram(programID);
-    GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
     //Initialize Bullet Physics stuff
     ///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
     btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -371,6 +384,49 @@ int main( void )
         //Run physical simulations to updates objects' model matrices
         double currentSimTime = currentTime - startTime;
         dynamicsWorld->stepSimulation(currentSimTime, 10);
+        ////// Start of the rendering of the environment ball//////
+        glUseProgram(env_programID);
+        mat4 env_MVP = ProjectionMatrix*ViewMatrix*env_Model;
+        glUniformMatrix4fv(env_MatrixID,1, GL_FALSE, &env_MVP[0][0]);
+        // Bind our texture in Texture Unit 0
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, Texture);
+        // Set our "myTextureSampler" sampler to use Texture Unit 0
+        glUniform1i(TextureID, 0);
+        // 1rst attribute buffer : vertices
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+        glVertexAttribPointer(
+                              0,                  // attribute
+                              3,                  // size
+                              GL_FLOAT,           // type
+                              GL_FALSE,           // normalized?
+                              0,                  // stride
+                              (void*)0            // array buffer offset
+                              );
+        
+        // 2nd attribute buffer : UVs
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
+        glVertexAttribPointer(
+                              1,                                // attribute
+                              2,                                // size
+                              GL_FLOAT,                         // type
+                              GL_FALSE,                         // normalized?
+                              0,                                // stride
+                              (void*)0                          // array buffer offset
+                              );
+        // Index buffer
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+        glDrawElements(
+                       GL_TRIANGLES,      // mode
+                       indices.size(),    // count
+                       GL_UNSIGNED_SHORT,   // type
+                       (void*)0           // element array buffer offset
+                       );
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        ////// End of the rendering of the environment ball//////
         ////// Start of the rendering of the balls//////
         std::vector<glm::mat4> Matrices;
         for (int j = num_colli_obj - 1; j >= 0; j--)
@@ -399,7 +455,8 @@ int main( void )
         
         // Use our shader
         glUseProgram(programID);
-        
+        // Get a handle for our "LightPosition" uniform
+        GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
         glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]); // This one doesn't change between objects, so this can be done once for all objects that use "programID"
         
         computeLightPosFromInputs();
@@ -479,9 +536,9 @@ int main( void )
         glm::mat4 MVP2 = ProjectionMatrix * ViewMatrix * ModelMatrix2;
         glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP2[0][0]);
 
-        glUniform3f(ColorID, 0.,0.,0.);
+        glUniform3f(ColorID, 0.5,0.5,0.5);
         
-        glUniform1f(TrasparencyID, 0.8);
+        glUniform1f(TrasparencyID, 0.25);
         
         // 1rst attribute buffer : vertices
         glEnableVertexAttribArray(0);

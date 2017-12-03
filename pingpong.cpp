@@ -25,7 +25,6 @@ using namespace glm;
 #include <objloader.hpp>
 #include <vboindexer.hpp>
 #include <vboindexer.hpp>
-#include <primitives.hpp>
 
 void addPlaneToSim(btVector3 normal, btScalar d, btAlignedObjectArray<btCollisionShape*>& collisionShapes, btDynamicsWorld* dynamicsWorld) {
     btCollisionShape* Shape = new btStaticPlaneShape(normal, d);
@@ -129,7 +128,7 @@ int main( void )
     GLuint CursID = glGetUniformLocation(cursor_programID, "cur_pos");
     
     // Create and compile our shader for the giant environment ball
-    GLuint env_programID = LoadShaders( "TransformVertexShader.vertexshader", "TextureFragmentShader.fragmentshader" );
+    GLuint env_programID = LoadShaders( "TextureVertexShader.vertexshader", "TextureFragmentShader.fragmentshader" );
     
     // Get a handle for our "MVP" uniform
     GLuint env_MatrixID = glGetUniformLocation(env_programID, "MVP");
@@ -154,12 +153,8 @@ int main( void )
     GLuint ColorID = glGetUniformLocation(programID, "diffuse_colour");
     GLuint TrasparencyID = glGetUniformLocation(programID, "transparency");
     
-    // Load the texture
-    //GLuint Texture = loadBMP_custom("pingpong.bmp");
-    
-    // Get a handle for our "myTextureSampler" uniform
-    //GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
-    
+    /*Create a Ball
+     *The ball model is used in two ways: one for all the shooting balls, one for the giant environment ball outside the box*/
     // Read our .obj file
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec2> uvs;
@@ -204,10 +199,11 @@ int main( void )
     ball_color[2] = (double)(rand() % 256)/255.;
     ball_colors.insert(ball_colors.end(), ball_color);
     
-    /*Create a Box*****************************************************************/
+    /*Create a Box
+     *The box model is used twice: one box for the room in which the balls bounce around, one box for the cursor*/
     // Read our .obj file
     std::vector<glm::vec3> f_vertices;
-    //f_uvs will be arbitrarily initialized such that we can use the indexVBO function but I gave up using texture mapping so it does not matter anymore
+    //f_uvs does not matter because I am not doing texture mapping on the box, but I initialize it anyway so that I can use the same loadOBJ and indexVBO function
     std::vector<glm::vec2> f_uvs;
     std::vector<glm::vec3> f_normals;
     //fail to use maya to properly export a box, might as well write my own
@@ -266,8 +262,8 @@ int main( void )
     //keep track of the shapes, we release memory at exit.
     //make sure to re-use collision shapes among rigid bodies whenever possible!
     btAlignedObjectArray<btCollisionShape*> collisionShapes;
-    //TODO Make a Table
-    {//The BOX, made up of six infinite planes (to simplify)
+
+    {//The BOX, made up of six infinite planes
         addPlaneToSim(btVector3(0,1,0), -1., collisionShapes, dynamicsWorld);
         addPlaneToSim(btVector3(0,-1,0), -2., collisionShapes, dynamicsWorld);
         addPlaneToSim(btVector3(1,0,0), -1, collisionShapes, dynamicsWorld);
@@ -314,14 +310,12 @@ int main( void )
     double startTime = glfwGetTime();
     do{
         
-        // Measure speed
+        // Render at 60fps
         double currentTime = glfwGetTime();
         while ( currentTime - lastTime <= 0.0166 ){
             currentTime = glfwGetTime();
             nbFrames++;
         }
-        // printf and reset timer
-        //printf("%f ms/frame\n", 1000.0/double(nbFrames));
         nbFrames = 0;
         lastTime = currentTime;
         // Clear the screen
@@ -374,17 +368,13 @@ int main( void )
             ball_colors.insert(ball_colors.end(), ball_color);
         }
         
-        //Before step into the next simulation timestamp, want to record the old speed so that we can maintain the the same speed after the simulation. We are not trying to follow actual physics here. Instead, we just want to create a visual effect that all the balls keep bouncing forever
         int num_colli_obj = dynamicsWorld->getNumCollisionObjects();
-        
-        for (int j = num_colli_obj - 1; j >= num_planes; j--) {
-            
-        }
-        
         //Run physical simulations to updates objects' model matrices
         double currentSimTime = currentTime - startTime;
         dynamicsWorld->stepSimulation(currentSimTime, 10);
+        
         ////// Start of the rendering of the environment ball//////
+        //Use the Texture Shader
         glUseProgram(env_programID);
         mat4 env_MVP = ProjectionMatrix*ViewMatrix*env_Model;
         glUniformMatrix4fv(env_MatrixID,1, GL_FALSE, &env_MVP[0][0]);
@@ -453,7 +443,7 @@ int main( void )
             }
         }
         
-        // Use our shader
+        // Use the Standard shader
         glUseProgram(programID);
         // Get a handle for our "LightPosition" uniform
         GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
@@ -563,7 +553,7 @@ int main( void )
         
         
         ////// End of rendering of the box object //////
-        ////// Start of the rendering of the gun object //////
+        ////// Start of the rendering of the cursor object //////
         // Use our cursor shader
         glUseProgram(cursor_programID);
         // 1rst attribute buffer : vertices
@@ -602,6 +592,12 @@ int main( void )
     glDeleteBuffers(1, &uvbuffer);
     glDeleteBuffers(1, &normalbuffer);
     glDeleteBuffers(1, &elementbuffer);
+    glDeleteBuffers(1, &f_vertexbuffer);
+    glDeleteBuffers(1, &f_uvbuffer);
+    glDeleteBuffers(1, &f_normalbuffer);
+    glDeleteBuffers(1, &f_elementbuffer);
+    glDeleteProgram(cursor_programID);
+    glDeleteProgram(env_programID);
     glDeleteProgram(programID);
     glDeleteVertexArrays(1, &VertexArrayID);
     //Clean up Bullet Physics stuff

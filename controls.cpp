@@ -1,6 +1,6 @@
 // Include GLFW
 #include <glfw3.h>
-extern GLFWwindow* window; // The "extern" keyword here is to access the variable "window" declared in tutorialXXX.cpp. This is a hack to keep the tutorials simple. Please avoid this.
+extern GLFWwindow* window;
 
 // Include GLM
 #include <glm/glm.hpp>
@@ -23,7 +23,7 @@ glm::mat4 ProjectionMatrix;
 //Initial light position
 glm::vec3 lightPos = glm::vec3(0,0,6);
 // Initial position : on +Z
-glm::vec3 position = glm::vec3( 0, 0, 6 );
+glm::vec3 position = glm::vec3(0,0,6);
 
 double old_xpos, old_ypos, new_xpos, new_ypos;
 
@@ -38,10 +38,6 @@ glm::vec3 getlightPos() {
     return lightPos;
 }
 
-glm::vec3 getcamPos() {
-    return position;
-}
-
 // Initial horizontal angle : toward -Z
 float horizontalAngle = 3.14f;
 // Initial vertical angle : none
@@ -50,10 +46,8 @@ float verticalAngle = 0.0f;
 float initialFoV = 45.0f;
 
 float speed = 3.0f; // 3 units / second
-float mouseSpeed = 0.002f;
-
-//slow down the change in light position.
-float movelightspeed = 0.08;
+float mouseSpeed = 0.002f; // 0.002 units / second
+float movelightspeed = 0.08; //slow down the change in light position.
 
 
 
@@ -155,9 +149,13 @@ void computeLightPosFromInputs() {
         lightPos[0] += deltaTime*movelightspeed;
     }
     
-    // Strafe left
+    // Reset
     if (glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS){
         lightPos = glm::vec3(0,0,6);
+        position = glm::vec3(0,0,6);
+        horizontalAngle = 3.14f;
+        verticalAngle = 0.0f;
+        initialFoV = 45.0f;
     }
     
 }
@@ -187,30 +185,12 @@ void ScreenPosToWorldRay(
                           1.0f
                           );
     
-    
-    // The Projection matrix goes from Camera Space to NDC.
-    // So inverse(ProjectionMatrix) goes from NDC to Camera Space.
-    /*glm::mat4 InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
-    
-    // The View Matrix goes from World Space to Camera Space.
-    // So inverse(ViewMatrix) goes from Camera Space to World Space.
-    glm::mat4 InverseViewMatrix = glm::inverse(ViewMatrix);
-    
-    glm::vec4 lRayStart_camera = InverseProjectionMatrix * lRayStart_NDC;    lRayStart_camera/=lRayStart_camera.w;
-    glm::vec4 lRayStart_world  = InverseViewMatrix       * lRayStart_camera; lRayStart_world /=lRayStart_world .w;
-    glm::vec4 lRayEnd_camera   = InverseProjectionMatrix * lRayEnd_NDC;      lRayEnd_camera  /=lRayEnd_camera  .w;
-    glm::vec4 lRayEnd_world    = InverseViewMatrix       * lRayEnd_camera;   lRayEnd_world   /=lRayEnd_world   .w;*/
-    
-    
-    // Faster way (just one inverse)
     glm::mat4 M = glm::inverse(ProjectionMatrix * ViewMatrix);
     glm::vec4 lRayStart_world = M * lRayStart_NDC; lRayStart_world/=lRayStart_world.w;
     glm::vec4 lRayEnd_world   = M * lRayEnd_NDC  ; lRayEnd_world  /=lRayEnd_world.w;
     
     
     glm::vec3 lRayDir_world(lRayEnd_world - lRayStart_world);
-    //lRayDir_world = glm::normalize(lRayDir_world);
-    
     
     out_origin = glm::vec3(lRayStart_world);
     out_direction = glm::normalize(lRayDir_world);
